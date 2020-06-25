@@ -1,0 +1,6 @@
+apiVersion: sectigo.com/v1alpha1
+kind: SectigoOperator
+metadata:
+  name: sectigo-operator-resource
+spec:
+  domain: trianzcloud.com  

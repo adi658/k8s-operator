@@ -1,0 +1,40 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: sectigok8soperator.sectigo.com
+spec:
+  group: sectigo.com
+  names:
+    kind: SectigoOperator
+    listKind: sectigok8soperatorList
+    plural: sectigok8soperator
+    singular: sectigok8soperator
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          type: string
+        kind:
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            domain:
+              minLength: 1
+              type: string
+          required:
+          - domain
+          type: object
+        status:
+          properties:
+            currentPod:
+              type: string
+            startTimes:
+              format: int64
+              type: integer
+          type: object
+  version: v1alpha1

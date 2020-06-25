@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sectigok8soperator
+  labels:
+    app: sectigok8soperator
+spec:
+  selector:
+    matchLabels:
+      app: sectigok8soperator
+  template:
+    metadata:
+      labels:
+        app: sectigok8soperator
+    spec:
+      serviceAccountName: sectigok8soperator
+      containers:
+      - image: adi658/op3:latest
+        name: sectigok8soperator
+        env:
+        - name: SECRET
+          value: sectigo-secret
+
+
+      #   volumeMounts:
+      #   - name: sectigo-ssl-cert
+      #     mountPath: "/etc/ssl/mycert/"
+      #     subPath: "mycert"
+      # volumes:
+      # - name: sectigo-ssl-cert
+      #   secret:
+      #     secretName: sectigo-secret

@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  creationTimestamp: 2017-12-27T18:38:34Z
+  name: sectigo-ssl-config
+  namespace: default
+  resourceVersion: "810136"
+  uid: 252c4572-eb35-11e7-887b-42010a8002b8
+data:
+  sectigo_ssl_cert_filepath: /etc/ssl/
