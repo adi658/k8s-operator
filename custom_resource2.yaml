@@ -1,0 +1,7 @@
+apiVersion: sectigo.com/v1alpha1
+kind: SectigoOperator
+metadata:
+  name: sectigo-operator-resource2
+spec:
+  domain: app2.trianzcloud.com
+  secretName: my-secret-2

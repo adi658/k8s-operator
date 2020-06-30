@@ -6,7 +6,9 @@ cd /data/eks-cluster/operator/op3
 echo "" 
 echo "--------- Clean Up ---------"
 kubectl delete -f . 
-kubectl delete secret sectigo-secret
+kubectl delete secret my-secret-1
+kubectl delete secret my-secret-2
+kubectl delete secret my-secret-3
 
 echo "" 
 echo "--------- Check if secret is present ---------"
@@ -36,6 +38,6 @@ sleep 5
 
 echo "" 
 echo "--------- Check if secret is updated ---------"
-kubectl get secret sectigo-secret -o yaml
+kubectl get secret 
 
 echo "END"

@@ -26,8 +26,12 @@ spec:
             domain:
               minLength: 1
               type: string
+            secretName:
+              minLength: 1
+              type: string
           required:
           - domain
+          - secretName
           type: object
         status:
           properties:
