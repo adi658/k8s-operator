@@ -13,6 +13,7 @@ log.addHandler(out_hdlr)
 log.setLevel(logging.INFO)
 
 def event_loop():
+    
     log.info("Starting the service")
     url = 'http://3.211.68.242:8001/apis/sectigo.com/v1alpha1/sectigok8soperator?watch=true'
     r = requests.get(url, stream=True)
@@ -39,5 +40,10 @@ def event_loop():
         elif event_type == "DELETED":
             log.info(" ------------------------ Deletion detected ------------------------")
             c.delete_cert(domain, secretName)
+
+        elif event_type == "MODIFIED":
+            log.info(" ------------------------ Update detected 1------------------------")
+            c.update_cert(domain, secretName)
+            log.info(" ------------------------ Update detected 3------------------------")
 
 event_loop()

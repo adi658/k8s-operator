@@ -5,5 +5,5 @@ COPY entrypoint.py /entrypoint.py
 # COPY sectigo_ssl.crt /sectigo_ssl.crt
 # COPY sectigo_ssl.key /sectigo_ssl.key
 RUN pip install requests
-RUN pip install kubernetes
+# RUN pip install kubernetes
 ENTRYPOINT python /entrypoint.py && tail -f /dev/null
