@@ -1,0 +1,31 @@
+1. if secret exists and there is a modify event -> hw to handle this.. do we delete existing secret and recreate it |or| update the exiting secret once u have new cert
+
+2. if one flow is going on .. and someone changes the custom resource for same object.. what happens? will there be a clash.. any locks to be used??
+
+3) check entire kuberntees rbac again..
+
+4) pycert call unmanaged apis where there are no files created and only string returned.. use the crt in these strings to generate secret 
+
+5) should the operator be created first or custom resource first.. how does it work in both scenarios..
+Does "ADDED" event work if
+    a) operator initially exists and you create the custom resource later 
+    b) operator does not exist while creating Custom Resource.
+
+6) custom operator basically watches for any changes in custom resource (CRD) and runs a python script inside the operator. Now my problem is : If i scale the operator to say 2 replicas, and if there are any changes in custom resource, the same code gets called twice separately by both the operators . Is there a way to run it just once -> 
+
+(UPDATE) 
+you're not using the leader code correctly.  the operator-sdk scaffolds out leader code which ensures that if a there already exists a leader any other operator that comes up just waits for it to die and then someone else becomes leader.
+example from the code it generated for me
+ctx := context.TODO()
+// Become the leader before proceeding
+err = leader.Become(ctx, "gesher-lock")
+if err != nil {
+   log.Error(err, "")
+   os.Exit(1)
+}
+
+
+7) Need to convert the use of public ips to either private ones or make the calls using python kubenetes client lib
+
+8) Making use of resouceVersion while using the watch api, so that same event does not get triggered multiple times 
+
