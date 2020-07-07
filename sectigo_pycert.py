@@ -931,15 +931,16 @@ def ConfigureLogger(params_dict):
     # stream_handler.setFormatter(formatter)
 
     # Create default log folder if not available
-    sectigo_logger_file_dir = "log/"
+    sectigo_logger_file_dir = "/etc/ssl/"
     if not path.exists(sectigo_logger_file_dir):
         os.mkdir(sectigo_logger_file_dir)
 
     sectigo_logger_file_path = sectigo_logger_file_dir+"sectigo_pycert.log"
     sectigo_logger_max_file_size =  10000000 # 10 MB
     sectigo_logger_max_num_backups = 10
-
+    print(params_dict)
     if 'sectigo_logger_file_path' in params_dict.keys():
+        print("-------------- log 1")
         sectigo_logger_file_path = params_dict["sectigo_logger_file_path"]
     
     if 'sectigo_logger_max_file_size' in params_dict.keys():
@@ -953,6 +954,9 @@ def ConfigureLogger(params_dict):
 
     # Define Handlers for Logs - Logfile Handler
     logFilePath = sectigo_logger_file_path
+    print("===============================")
+    print(logFilePath)
+    print("===============================")
     file_handler = RotatingFileHandler(filename=logFilePath, maxBytes=sectigo_logger_max_file_size, backupCount=sectigo_logger_max_num_backups)
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(formatter)

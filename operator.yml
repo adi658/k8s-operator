@@ -5,6 +5,7 @@ metadata:
   labels:
     app: sectigok8soperator
 spec:
+  replicas: 2
   selector:
     matchLabels:
       app: sectigok8soperator
@@ -13,10 +14,18 @@ spec:
       labels:
         app: sectigok8soperator
     spec:
+      volumes:
+      - name: shared-logs 
+        # emptyDir: {}
+        hostPath:
+          path: /etc/ssl/
       serviceAccountName: sectigok8soperator
       containers:
       - image: adi658/op3:latest
         name: sectigok8soperator
+        volumeMounts:
+        - name: shared-logs
+          mountPath: /etc/ssl/
         env:
         - name: SECRET
           value: sectigo-secret
@@ -28,12 +37,11 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-
-      #   volumeMounts:
-      #   - name: sectigo-ssl-cert
-      #     mountPath: "/etc/ssl/mycert/"
-      #     subPath: "mycert"
-      # volumes:
-      # - name: sectigo-ssl-cert
-      #   secret:
-      #     secretName: sectigo-secret
+      - image: adi658/leaderelection:latest
+        name: leaderelection
+        args:
+        - --election=sectigok8soperator
+        - --http=0.0.0.0:4040
+        volumeMounts:
+        - name: shared-logs
+          mountPath: /etc/ssl/

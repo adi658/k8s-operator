@@ -1,12 +1,63 @@
-apiVersion: rbac.authorization.k8s.io/v1
+# apiVersion: rbac.authorization.k8s.io/v1
+# kind: ClusterRoleBinding
+# metadata:
+#   name: sectigok8soperator.sectigo.com
+# roleRef:
+#   apiGroup: rbac.authorization.k8s.io
+#   kind: ClusterRole
+#   name: cluster-admin
+# subjects:
+#   - kind: ServiceAccount
+#     name: sectigok8soperator
+#     namespace: default
+
+#Cluster Role
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: sectigok8soperator-cr
+  namespace: "default"  # namespace in which the operator gets deployed
+  labels:
+    app: sectigok8soperator
+rules:
+  - apiGroups: [""]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["service"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "update"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["endpoints"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+---
+# Binding the above role with Service Account 
+apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
-  name: sectigok8soperator.sectigo.com
+  name: sectigok8soperator
+  labels:
+    app: sectigok8soperator
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: cluster-admin
+  name: sectigok8soperator-cr
 subjects:
-  - kind: ServiceAccount
-    name: sectigok8soperator
-    namespace: default
+  - name: sectigok8soperator
+    namespace: "default"
+    kind: ServiceAccount  
+---

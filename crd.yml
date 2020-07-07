@@ -29,6 +29,90 @@ spec:
             secretName:
               minLength: 1
               type: string
+            sectigo_cert_type:
+              minLength: 1
+              type: string
+            sectigo_cm_base_url: 
+              minLength: 1
+              type: string
+            sectigo_cm_org_id: 
+              minLength: 1
+              type: integer
+            sectigo_ssl_cert_file_path:   
+              minLength: 1
+              type: string
+            sectigo_ssl_cert_file_name:   
+              minLength: 1
+              type: string
+            sectigo_force:  
+              minLength: 1
+              type: boolean
+            sectigo_ssl_cert_type: 
+              minLength: 1
+              type: integer
+            sectigo_ssl_cert_validity: 
+              minLength: 1
+              type: integer
+            sectigo_ssl_cert_custom_fields:   
+              minLength: 1
+              type: array
+            sectigo_ssl_cert_external_requester:   
+              minLength: 1
+              type: null
+            sectigo_ssl_cert_comments:   
+              minLength: 1
+              type: string
+            sectigo_ssl_cert_num_servers:  
+              minLength: 1
+              type: integer
+            sectigo_ssl_cert_server_type:   
+              minLength: 1
+              type: integer
+            sectigo_ssl_cert_subject_alt_names:   
+              minLength: 1
+              type: string
+            sectigo_ssl_cert_format_type:   
+              minLength: 1
+              type: string
+            sectigo_max_timeout: 
+              minLength: 1
+              type: integer
+            sectigo_loop_period:   
+              minLength: 1
+              type: integer
+            sectigo_expiry_window:  
+              minLength: 1
+              type: integer
+            sectigo_auto_renew: 
+              minLength: 1
+              type: boolean
+            sectigo_csr_domain: 
+              minLength: 1
+              type: string
+            sectigo_csr_country: 
+              minLength: 1
+              type: string
+            sectigo_csr_state: 
+              minLength: 1
+              type: string
+            sectigo_csr_location: 
+              minLength: 1
+              type: string
+            sectigo_csr_organization: 
+              minLength: 1
+              type: string
+            sectigo_csr_organization_unit: 
+              minLength: 1
+              type: string
+            sectigo_csr_email_address: 
+              minLength: 1
+              type: string
+            sectigo_csr_key_algo: 
+              minLength: 1
+              type: string
+            sectigo_csr_key_size: 
+              minLength: 1
+              type: integer
           required:
           - domain
           - secretName

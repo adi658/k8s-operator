@@ -4,6 +4,19 @@ import json
 import logging
 import sys
 import cert as c 
+import time
+
+
+import sys 
+import glob, os
+import shutil
+import os,sys,inspect,simplejson
+from os import path
+from os.path import exists, join, isdir
+current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parent_dir = os.path.dirname(current_dir)
+sys.path.insert(0, parent_dir) 
+import sectigo_pycert as p
 
 log = logging.getLogger(__name__)
 out_hdlr = logging.StreamHandler(sys.stdout)
@@ -12,8 +25,27 @@ out_hdlr.setLevel(logging.INFO)
 log.addHandler(out_hdlr)
 log.setLevel(logging.INFO)
 
+# Set Connection Parameters
+connectDictionary = {
+        'sectigo_cm_user': 'manish.bhardwaj@trianz.com',
+        'sectigo_cm_password': 'Trianz@123',
+        'sectigo_cm_uri': 'Trianz-poc-ux',
+        'sectigo_cm_base_url': 'https://cert-manager.com/'
+}
+response = p.SetConnectionParameters(connectDictionary)
+
+# Configure Logger
+log_params = {
+    # 'sectigo_logger_file_path'       : 'log/sectigo_pycert.log',
+    # 'sectigo_logger_stdout_flag'     : True,
+    # 'sectigo_logger_max_file_size'   : 10000000, # 10 MB
+    # 'sectigo_logger_max_num_backups' : 10
+}
+response = p.ConfigureLogger(log_params)
+
 def event_loop():
     
+
     log.info("Starting the service")
     url = 'http://3.211.68.242:8001/apis/sectigo.com/v1alpha1/sectigok8soperator?watch=true'
     r = requests.get(url, stream=True)
@@ -30,12 +62,32 @@ def event_loop():
 
         domain = obj['object']['spec']['domain']
         secretName = obj['object']['spec']['secretName']
+        sectigo_cert_type = (obj['object']['spec']['sectigo_cert_type']).upper()
+        enroll_dict = obj['object']['spec']
         print(domain)
         print(secretName)
 
         if event_type == "ADDED":
             log.info(" ------------------------ Creation detected ------------------------")
-            c.create_cert(domain, secretName)
+            enroll_response = p.EnrollCertificate(enroll_dict, sectigo_cert_type)
+            print("--------------------------------- ENROLL - response - start ")
+            print(enroll_response)
+            print(enroll_response["ssl_id"])
+            print("--------------------------------- ENROLL - response - end")
+
+            # 2. CollectCertificate Sample Operation - SSL
+            print("#######################################################")
+            print("2. CollectCertificate Sample Opertaion - SSL")
+            collect_dict = {
+                'sectigo_ssl_cert_ssl_id': enroll_response["ssl_id"], 
+                'sectigo_ssl_cert_format_type': 'x509CO', 
+                'sectigo_loop_period': 30, 
+                'sectigo_max_timeout': 600
+            }
+            collect_response = p.CollectCertificate(collect_dict, sectigo_cert_type)
+            print("--------------------------------- COLLECT - collect_response - start ")
+            print(response)
+            print("--------------------------------- COLLECT - collect_response - end")
 
         elif event_type == "DELETED":
             log.info(" ------------------------ Deletion detected ------------------------")
@@ -46,69 +98,32 @@ def event_loop():
             c.update_cert(domain, secretName)
             log.info(" ------------------------ Update detected 3------------------------")
 
-            # import sys 
-            # import glob, os
-            # import shutil
-            # import os,sys,inspect,simplejson
-            # from os import path
-            # from os.path import exists, join, isdir
+def main():
+    HOSTNAME = os.getenv("HOSTNAME")
+    url = "http://localhost:4040"
+    response = requests.get(url, stream=True)
+    resp = json.loads(response.text)
+    leaderHost = resp['name']
+    print(leaderHost)
+    print(HOSTNAME)
 
-            # current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-            # parent_dir = os.path.dirname(current_dir)
-            # sys.path.insert(0, parent_dir) 
+    # url = "http://3.211.68.242:8001/api/v1/namespaces/default/endpoints/sectigok8soperator"
 
-            # import pycert as p
+    # r = requests.get(url, stream=True)
+    # resp = json.loads(r.text)
+    # leaderHostJson = json.loads(resp['metadata']['annotations']['control-plane.alpha.kubernetes.io/leader'])
+    # print("------------------")
+    # print(leaderHostJson)
+    # leaderHost = leaderHostJson['holderIdentity']
 
-            # # Set Connection Parameters
-            # connectDictionary = {
-            #         'sectigo_cm_user': 'myuser',
-            #         'sectigo_cm_password': 'mypassword',
-            #         'sectigo_cm_uri': 'myuri',
-            #         'sectigo_cm_base_url': 'https://myca.mydomain.com/'
-            # }
-            # response = p.SetConnectionParameters(connectDictionary)
+    # print("------------------")
+    # print(leaderHost)
+    # print("------------------")
+    # print(HOSTNAME)
 
-            # certCategory = "SSL"
-            # # 1. EnrollCertificate Sample Operation - SSL
-            # print("#######################################################")
-            # print("1. EnrollCertificate Sample Operation - SSL")
-            # enrollDictionary = {
-            #     'sectigo_cm_org_id': 9941,
-            #     'sectigo_ssl_cert_type': 248,
-            #     'sectigo_ssl_cert_validity': 365,
-            #     'sectigo_ssl_cert_custom_fields': [],
-            #     'sectigo_ssl_cert_external_requester': '',
-            #     'sectigo_ssl_cert_comments': 'Test Cert for Sectigo',
-            #     'sectigo_ssl_cert_num_servers': 0,
-            #     'sectigo_ssl_cert_server_type': -1,
-            #     'sectigo_ssl_cert_subject_alt_names': 'app1.mycompanydomain.com,app2.mycompanydomain.com',
-                
-            #     'sectigo_csr': '-----BEGIN CERTIFICATE REQUEST-----MIIDLDCCAhQCAQAwgY0xCzAJBgNVBAYTAklOMQswCQYDVQQIDAJLQTEMMAoGA1UEBwwDQkxSMQ8wDQYDVQQKDAZUcmlhbnoxDjAMBgNVBAsMBUNsb3VkMSgwJgYJKoZIhvcNAQkBFhlhZGl0eWEuYmhhbmdsZUB0cmlhbnouY29tMRgwFgYDVQQDDA90cmlhbnpjbG91ZC5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDHHYidO2qFUswl7XttFmMhyYMB7aisytuDwelPUCZEjR1jqePmlUI07RWkKfAcM0Y7410euWqlDZG6mtVRrUAINfwrUaCSJJz/2wMEzQ8UKoV/FOZJXcDw56LZiOBvW5xLhuQBl+uNUZOzjWbaDwq8oIIcYn3hTW8dnwlrxjaHoj1I3mc5cQoaQelYwASPgBPzMXd+h30bCeHEXGZ/C1rU8Dpepmo7c96pvxqiLJL4Mvweh4gwbB/WYwSmTalWhisEI3WHJUyvFupeYPlYePB3CLB9oeDxq7iVRfJCwGBjwGCmFRSGJGqwpCsZbWX3cZRwqQai/Nz4EfzKawz/NAi1AgMBAAGgWTBXBgkqhkiG9w0BCQ4xSjBIMEYGA1UdEQQ/MD2CHHB1cHBldC1zbGF2ZS50cmlhbnpjbG91ZC5jb22CHXB1cHBldC1zbGF2ZTIudHJpYW56Y2xvdWQuY29tMA0GCSqGSIb3DQEBCwUAA4IBAQClTwiVAFVb3aG7kQi8HpHnVx/HdXt/hVMdYnVZ2w0PaJ9nwKewV1xV6kXrejeGGAiZG9U4YvKm7tWm0mqsVZQpUDFy/PcxiAWpyDIIL8HeeEZ5QsuZ5/iM05o5/ixPQT3Ilz3zUD/Qyv/JlovQD1XHEo483T1k9c5aYd/RrbMcREkXGGEM+7A1zOcmm1H563BQIgs6eqNoDF8I+kOKaHR2Nm5aXbXMTeAWrgY/w9o2IN/K02vxnzav0xTtXtS00g2vxRMSEeKGHdiFl475iCetXPmwqZ0zi0IACStNw72Euhh+rxcMEPnToynriUKxunvlNFve1ZM7BFugrpTnLbs8-----END CERTIFICATE REQUEST-----'
-
-            # }
-            # response = p.EnrollCertificate(enrollDictionary,certCategory)
-
-
-# def main():
-#     from threading import Thread
-#     from leaderelection import Elect
-
-#     # Init leader election class. Configmap is the name of the configmap to create to store leader election information
-#     leaderelection = Elect(configmap='sample-controller-leader-election')
-#     # Run leader election in new thread
-#     th = Thread(target=leaderelection.run)
-#     th.setDaemon(True)
-#     th.start()
-#     #start main controller loop
-#     while True:
-#         # Check if pod is the leader. If so continue on with controller logic.
-#         leader = leaderelection.check_leader()
-#         if leader:
-#             logger.info("I am the leader!!")
-#             event_loop()
-#         else:
-#             logger.info("I am NOT the leader")
-
-# main()
-
-event_loop()
+    if leaderHost == HOSTNAME:
+        event_loop()
+    else:
+        time.sleep(5)
+        main()
+main()
