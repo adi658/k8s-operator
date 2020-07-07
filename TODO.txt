@@ -29,3 +29,9 @@ if err != nil {
 
 8) Making use of resouceVersion while using the watch api, so that same event does not get triggered multiple times 
 
+9) If you are running a enroll and it dies while collecting.. the other leader should automatically collect.. may be by referring to the configmap/secret and checking if sslid is stored.. also store key and csr in secret 
+where to store sslid?secret of configmap? 
+
+10) logs? mount host volume to container? common location for multiple containers.. 
+
+how to use the apis .. 
