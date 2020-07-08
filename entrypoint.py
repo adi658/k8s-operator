@@ -8,6 +8,8 @@ import time
 import requests
 import base64
 import os 
+from kubernetes import client, config
+from kubernetes.client.rest import ApiException
 
 
 import sys 
@@ -46,114 +48,120 @@ log_params = {
 }
 response = p.ConfigureLogger(log_params)
 
+def encode_base64(content):
+    message_bytes = content.encode('ascii')
+    base64_cert = base64.b64encode(message_bytes)
+    encodedStr = str(base64_cert,'utf-8')
+    return encodedStr
+
 def getToken():
-  token = ""
-  with open('/var/run/secrets/kubernetes.io/serviceaccount/token', 'r') as file:
-      token = file.read().replace('\n', '')
-  return token
+    token = ""
+    with open('/var/run/secrets/kubernetes.io/serviceaccount/token', 'r') as file:
+        token = file.read().replace('\n', '')
+    return token
+
+def getHost():
+    KUBERNETES_SERVICE_HOST=os.getenv("KUBERNETES_SERVICE_HOST")
+    KUBERNETES_SERVICE_PORT=os.getenv("KUBERNETES_SERVICE_PORT")
+    HOST = "https://"+KUBERNETES_SERVICE_HOST+":"+KUBERNETES_SERVICE_PORT
+    return HOST
+
+def getCaCert():
+    cacert = ""
+    with open('/var/run/secrets/kubernetes.io/serviceaccount/ca.crt', 'r') as file:
+        token = file.read().replace('\n', '')
+    # return cacert
+    return '/var/run/secrets/kubernetes.io/serviceaccount/ca.crt'
+
+def getHeaders():
+    token = getToken()
+    headers = {
+        "Authorization": "Bearer "+token,
+        'Accept': 'application/json',
+        'Connection': 'close',
+        'Content-Type': 'application/json'
+    }
+    return headers
+
+def getConfiguration():
+    ApiToken = getToken()
+    configuration = client.Configuration()
+    configuration.host = "https://"+os.getenv("KUBERNETES_SERVICE_HOST")+":"+str(os.getenv("KUBERNETES_SERVICE_PORT"))
+    configuration.api_key={"authorization":"Bearer "+ ApiToken}
+    configuration.verify_ssl=False
+    configuration.debug = True
+    return configuration
 
 # Works 
 def getExistingSecret(secretName):
-    print(" ------------------------ getExistingSecret Start ------------------------")
+    print(" ------------ getExistingSecret Start ------------")
 
-    token = getToken()
+    HOST = getHost()
+    headers = getHeaders()
 
-    url = "http://3.211.68.242:8001/api/v1/namespaces/default/secrets/"+secretName
-    print("======================================")
+    url = HOST+"/api/v1/namespaces/default/secrets/"+secretName
     print(url)
-    print("======================================")
 
-    # headers = {
-    #     "Authorization": "Bearer "+token,
-    #     'Accept': 'application/json',
-    #     'Connection': 'close',
-    #     'Content-Type': 'application/json'
-    # }
-
-    response = requests.request("GET", url, verify=False)
+    response = requests.request("GET", url, headers=headers, verify=getCaCert())
     obj = json.loads(response.text)
-    # dataObj = obj["data"]
-
     return obj
 
-def update_pre_cert_details(response, domain, secretName):
-
-    print("------------------------- inside update_pre_cert_details function ------------------------------")
-    print(domain)
-    print(response)
-    print(secretName)
-    print("-==-=------------------ log 1")
+def update_pre_cert_details(response, domain, secretName, resourceVersion):
+    print(" ------------ inside update_pre_cert_details function ------------")
     encodedCert = ""
     encodedKey = ""
     encodedCsr = ""
     encodedSslId = ""
 
-    print("-==-=------------------ log 2")
     if 'certificate' in response.keys():
-        print("-==-=------------------ log 3")
         cert = response["certificate"]
-        message_bytes = cert.encode('ascii')
-        base64_cert = base64.b64encode(message_bytes)
-        encodedCert = str(base64_cert,'utf-8')
+        encodedCert = encode_base64(cert)
 
     if 'private_key' in response.keys():
-        print("-==-=------------------ log 4")
         private_key = response["private_key"]
-        key_bytes = private_key.encode('ascii')
-        base64_key = base64.b64encode(key_bytes)
-        encodedKey = str(base64_key,'utf-8')
+        encodedKey = encode_base64(private_key)
 
     if 'csr' in response.keys():
-        print("-==-=------------------ log 5")
         csr = response["csr"]
-        csr_bytes = csr.encode('ascii')
-        base64_csr = base64.b64encode(csr_bytes)
-        encodedCsr = str(base64_csr,'utf-8')
+        print("-======================== CSR: ")
+        print(csr)
+        encodedCsr = encode_base64(csr)
 
     if 'ssl_id' in response.keys():
-        print("-==-=------------------ log 6")
         sslId = str(response["ssl_id"])
-        sslId_bytes = sslId.encode('ascii')
-        base64_sslId = base64.b64encode(sslId_bytes)
-        encodedSslId = str(base64_sslId,'utf-8')
+        encodedSslId = encode_base64(sslId)
+    
+    encodedResourceVersion = encode_base64(resourceVersion) 
+    encodedSecretName = encode_base64(secretName)
+    # encodedDomain = encode_base64(domain)
 
-    print("---------------crt ")
-    print(encodedCert)
-    print("---------------key")
-    print(encodedKey)
-    print("--------------- csr")
-    print(encodedCsr)
-    print("---------------sslid")
-    print(encodedSslId)
+    # HOST = getHost()
+    # headers = getHeaders()
 
-    secretName_bytes = secretName.encode('ascii')
-    base64_secretName = base64.b64encode(secretName_bytes)
-    encodedSecretName = str(base64_secretName,'utf-8')
+    # url = HOST+"/api/v1/namespaces/default/secrets"
+    # print(url)
+    
+    # payload = "{ \"kind\": \"Secret\", \"apiVersion\": \"v1\", \"metadata\": { \"name\": \""+secretName+"\", \"namespace\": \"default\" }, \"data\": { \"tls.crt\": \""+encodedCert+"\", \"tls.key\": \""+encodedKey+"\", \"tls.csr\": \""+encodedCsr+"\", \"sslId\": \""+encodedSslId+"\" }, \"type\": \"Opaque\" }"
 
-    domain_bytes = domain.encode('ascii')
-    base64_domain = base64.b64encode(domain_bytes)
-    encodedDomain = str(base64_domain,'utf-8')
+    # response = requests.request("POST", url, data = payload, headers=headers, verify=getCaCert())
+    # print(response.text.encode('utf8'))
 
-    token = getToken()
+    configuration = getConfiguration()
+    pretty = 'true'
+    exact = True
+    export = True
+    payload = { "kind": "Secret", "apiVersion": "v1", "metadata": { "name": secretName, "namespace": "default" }, "data": { "tls.crt": encodedCert, "tls.key": encodedKey, "tls.csr": encodedCsr, "sslId": encodedSslId, "resourceVersion": encodedResourceVersion }, "type": "Opaque" }
+    print("+++++++++++++++++++++++++++++++++++++++++++")
+    print(payload)
+    client.Configuration.set_default(configuration)
+    kubeApi = client.CoreV1Api(client.ApiClient(configuration))
+    allPods = kubeApi.create_namespaced_secret('default', payload)
+    print("======================================= allpods")
+    print(allPods)    
+    print("=======================================")
 
-    url = "http://3.211.68.242:8001/api/v1/namespaces/default/secrets"
-    #url ="https://kubernetes.default/api/v1/namespaces/default/secrets"
-    print("======================================")
-    print(url)
-    print("======================================")
-    payload = "{ \"kind\": \"Secret\", \"apiVersion\": \"v1\", \"metadata\": { \"name\": \""+secretName+"\", \"namespace\": \"default\" }, \"data\": { \"tls.crt\": \""+encodedCert+"\", \"tls.key\": \""+encodedKey+"\", \"tls.csr\": \""+encodedCsr+"\", \"sslId\": \""+encodedSslId+"\" }, \"type\": \"Opaque\" }"
-    # headers = {
-    #     "Authorization": "Bearer "+token,
-    #     'Accept': 'application/json',
-    #     'Content-Type': 'application/json'
-    # }
 
-    response = requests.request("POST", url, data = payload, verify=False)
-    print(response.text.encode('utf8'))
-
-    print("------------------------- end of update_pre_cert_details function ------------------------------")
-
-def update_post_cert_details(response, domain, secretName):
+def update_post_cert_details(response, domain, secretName, resourceVersion):
 
     print("------------------------- inside update_post_cert_details function ------------------------------")
 
@@ -178,11 +186,9 @@ def update_post_cert_details(response, domain, secretName):
 
     # Check if new values are present in the collect response.. If yes update.. If no, leave as it is... To check if it should be made blank.. 
     if 'scm_response' in response.keys():
-        if 'certificate' in response["scm_response"].keys():
-            cert = response["scm_response"]["certificate"]
-            message_bytes = cert.encode('ascii')
-            base64_cert = base64.b64encode(message_bytes)
-            encodedCert = str(base64_cert,'utf-8')
+        if 'body' in response["scm_response"].keys():
+            cert = response["scm_response"]["body"]
+            encodedCert = encode_base64(cert)
         else: 
             print("No certificate in response.")
     else: 
@@ -190,61 +196,59 @@ def update_post_cert_details(response, domain, secretName):
 
     if 'ssl_id' in response.keys():
         sslId = str(response["ssl_id"])
-        sslId_bytes = sslId.encode('ascii')
-        base64_sslId = base64.b64encode(sslId_bytes)
-        encodedSslId = str(base64_sslId,'utf-8')
+        encodedSslId = encode_base64(sslId)
 
-    print("---------------")
-    print(encodedCert)
-    print(encodedSslId)
+    encodedResourceVersion = encode_base64(resourceVersion) 
+    # encodedDomain = encode_base64(domain)
 
-    # secretName_bytes = secretName.encode('ascii')
-    # base64_secretName = base64.b64encode(secretName_bytes)
-    # encodedSecretName = str(base64_secretName,'utf-8')
+    # HOST = getHost()
+    # headers = getHeaders()
 
-    domain_bytes = domain.encode('ascii')
-    base64_domain = base64.b64encode(domain_bytes)
-    encodedDomain = str(base64_domain,'utf-8')
+    # url = HOST+"/api/v1/namespaces/default/secrets/"+secretName
+    # print(url)
+    # payload = "{ \"kind\": \"Secret\", \"apiVersion\": \"v1\", \"metadata\": { \"name\": \""+secretName+"\", \"namespace\": \"default\" }, \"data\": { \"tls.crt\": \""+encodedKey+"\", \"tls.key\": \""+encodedKey+"\", \"tls.csr\": \""+encodedCsr+"\", \"sslId\": \""+encodedSslId+"\" }, \"type\": \"Opaque\" }"
+    # print(payload)
 
-    token = getToken()
+    # response = requests.request("PUT", url, data = payload, headers=headers, verify=getCaCert())
+    # print(response.text.encode('utf8'))
 
-    url = "http://3.211.68.242:8001/api/v1/namespaces/default/secrets/"+secretName
-    #url ="https://kubernetes.default/api/v1/namespaces/default/secrets"
-    print("======================================")
-    print(url)
-    print("======================================")
-    payload = "{ \"kind\": \"Secret\", \"apiVersion\": \"v1\", \"metadata\": { \"name\": \""+secretName+"\", \"namespace\": \"default\" }, \"data\": { \"tls.crt\": \""+encodedKey+"\", \"tls.key\": \""+encodedKey+"\", \"tls.csr\": \""+encodedCsr+"\", \"sslId\": \""+encodedSslId+"\" }, \"type\": \"Opaque\" }"
-    # headers = {
-    #     "Authorization": "Bearer "+token,
-    #     'Accept': 'application/json',
-    #     'Content-Type': 'application/json'
-    # }
+    configuration = getConfiguration()
+    payload = { "kind": "Secret", "apiVersion": "v1", "metadata": { "name": secretName, "namespace": "default" }, "data": { "tls.crt": encodedCert, "tls.key": encodedKey, "tls.csr": encodedCsr, "sslId": encodedSslId, "resourceVersion": encodedResourceVersion }, "type": "Opaque" }
+    client.Configuration.set_default(configuration)
+    kubeApi = client.CoreV1Api(client.ApiClient(configuration))
 
-    response = requests.request("PUT", url, data = payload, verify=False)
-    print(response.text.encode('utf8'))
+    allPods = kubeApi.patch_namespaced_secret(secretName, 'default', payload)
+    print("=======================================")
+    print(allPods)    
+    print("=======================================")
+
+
+def event_loop1():
+    print("testing...")
 
 def event_loop():
+    HOST = getHost()
+    headers = getHeaders()
 
     log.info("Starting the service")
-    url = 'http://3.211.68.242:8001/apis/sectigo.com/v1alpha1/sectigok8soperator?watch=true'
-    r = requests.get(url, stream=True)
-    # We issue the request to the API endpoint and keep the conenction open
-    print("-------------")
-    print("-------------")
+    url = HOST+'/apis/sectigo.com/v1/sectigok8soperator?watch=true'
+    print(url)
+    r = requests.get(url, headers=headers, stream=True, verify=getCaCert())
+    print("======================= 1")
+    print(r)
+    print("======================= 2")
+    print(r.text)
+    print("======================= 3")
+
     for line in r.iter_lines():
         obj = json.loads(line)
         event_type = obj['type']    # ADDED, MODIFIED, DELETED
 
-        print(obj)
-        print(event_type)
-        print("-----------------------------------------------------------------")
-
         domain = obj['object']['spec']['domain']
-        secretName = obj['object']['spec']['secretName']
+        secretName = obj['object']['spec']['sectigo_ssl_cert_file_name']
+        resourceVersion = obj['object']['metadata']['resourceVersion']
         sectigo_cert_type = (obj['object']['spec']['sectigo_cert_type']).upper()
         enroll_dict = obj['object']['spec']
-        print(domain)
-        print(secretName)
 
         if event_type == "ADDED":
 
@@ -258,7 +262,7 @@ def event_loop():
             
             # if yes, do not add new .. Check if crt if valid.. (not null)
             if secretExists == True:
-                print("------------------------Secret \""+secretName+"\" already exists ------------------------")
+                print(" ------------ Secret \""+secretName+"\" already exists ------------")
                 certExists = False
                 if 'data' in obj.keys():
                     dataObj = obj["data"]
@@ -270,11 +274,11 @@ def event_loop():
                             print("--------- 2  secrt is not empty")
                             certExists = True
 
-                print("--------- 3 Checking secret ebd")
+                print("--------- 3 Checking secret end")
             
                 # Since secret is presnet, if cert is null or does not exist in secret, download it
                 if certExists == False:
-                    print("------------------------Cert does not exist in secret: \""+secretName+"\". Collecting ------------------------")
+                    print("------------ Cert does not exist in secret: \""+secretName+"\". Collecting ------------")
                     #########3 read sslid from secret and decode it from base64
                     collect_dict = {
                         'sectigo_ssl_cert_ssl_id': 1874599, 
@@ -283,24 +287,25 @@ def event_loop():
                         'sectigo_max_timeout': 6000
                     }
                     collect_response = p.CollectCertificate(collect_dict, sectigo_cert_type)
-                    print("--------------------------------- COLLECT - collect_response - start ")
+                    print("------------ COLLECT - collect_response - start ")
                     print(collect_response)
-                    # 
-                    print("--------------- sslid: ")
+                    print("------------ sslid: ")
                     print(collect_response["ssl_id"])
-                    update_post_cert_details(collect_response, domain, secretName)
-                    print("--------------------------------- COLLECT - collect_response - end")
+                    update_post_cert_details(collect_response, domain, secretName, resourceVersion)
+                    print("------------ COLLECT - collect_response - end 1")
 
             else: 
-                log.info(" ------------------------ Creation detected ------------------------")
+                log.info(" ------------ Creation detected ------------")
                 enroll_response = p.EnrollCertificate(enroll_dict, sectigo_cert_type)
-                print("--------------------------------- ENROLL - response - start ")
+                print("------------ ENROLL - response - start ")
                 print(enroll_response)
                 print(enroll_response["ssl_id"])
 
-                update_pre_cert_details(enroll_response, domain, secretName)
+                update_pre_cert_details(enroll_response, domain, secretName, resourceVersion)
+                # print("--------- EXITING ----------")
+                # exit(1)
 
-                print("--------------------------------- ENROLL - response - end")
+                print("------------ ENROLL - response - end")
 
                 # 2. CollectCertificate Sample Operation - SSL
                 print("#######################################################")
@@ -312,21 +317,21 @@ def event_loop():
                     'sectigo_max_timeout': 6000
                 }
                 collect_response = p.CollectCertificate(collect_dict, sectigo_cert_type)
-                print("--------------------------------- COLLECT - collect_response - start ")
+                print("------------ COLLECT - collect_response - start ")
                 print(collect_response)
-                print("--------------- sslid: ")
+                print("------------ sslid: ")
                 print(collect_response["ssl_id"])
-                update_post_cert_details(collect_response, domain, secretName)
-                print("--------------------------------- COLLECT - collect_response - end")
+                update_post_cert_details(collect_response, domain, secretName, resourceVersion)
+                print("------------ COLLECT - collect_response - end 2")
 
         elif event_type == "DELETED":
-            log.info(" ------------------------ Deletion detected ------------------------")
+            log.info(" ------------ Deletion detected ------------")
             # c.delete_cert(domain, secretName)
 
         elif event_type == "MODIFIED":
-            log.info(" ------------------------ Update detected 1------------------------")
+            log.info(" ------------ Update detected 1 ------------")
             # c.update_cert(domain, secretName)
-            log.info(" ------------------------ Update detected 3------------------------")
+            log.info(" ------------ Update detected 3 ------------")
 
 def main():
     HOSTNAME = os.getenv("HOSTNAME")
@@ -337,26 +342,13 @@ def main():
     print(leaderHost)
     print(HOSTNAME)
 
-    # url = "http://3.211.68.242:8001/api/v1/namespaces/default/endpoints/sectigok8soperator"
-
-    # r = requests.get(url, stream=True)
-    # resp = json.loads(r.text)
-    # leaderHostJson = json.loads(resp['metadata']['annotations']['control-plane.alpha.kubernetes.io/leader'])
-    # print("------------------")
-    # print(leaderHostJson)
-    # leaderHost = leaderHostJson['holderIdentity']
-
-    # print("------------------")
-    # print(leaderHost)
-    # print("------------------")
-    # print(HOSTNAME)
-
     if leaderHost == HOSTNAME:
         print("This is the leader pod")
+        print("------------------------ NEW FLOW ----------------------------")
         event_loop()
     else:
         print("This is NOT the leader pod. LeaderPod: "+leaderHost)
-        time.sleep(5)
+        time.sleep(10)
         main()
-main()
 
+main()

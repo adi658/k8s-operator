@@ -1,4 +1,4 @@
-apiVersion: sectigo.com/v1alpha1
+apiVersion: sectigo.com/v1
 kind: SectigoOperator
 metadata:
   name: sectigo-operator-resource1
@@ -10,7 +10,7 @@ spec:
   sectigo_cm_base_url: https://cert-manager.com/
   sectigo_cm_org_id: 9941
   sectigo_ssl_cert_file_path: /etc/ssl/  
-  sectigo_ssl_cert_file_name: sectigo_ssl1  
+  sectigo_ssl_cert_file_name: sectigo-ssl-a  
   sectigo_force: false  
   sectigo_ssl_cert_type: 248  
   sectigo_ssl_cert_validity: 365  

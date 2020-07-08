@@ -3,6 +3,7 @@ kind: CustomResourceDefinition
 metadata:
   name: sectigok8soperator.sectigo.com
 spec:
+  version: v1
   group: sectigo.com
   names:
     kind: SectigoOperator
@@ -125,4 +126,3 @@ spec:
               format: int64
               type: integer
           type: object
-  version: v1alpha1
