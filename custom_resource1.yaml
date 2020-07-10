@@ -27,8 +27,8 @@ spec:
   sectigo_auto_renew: true
 
   sectigo_csr_domain                      : trianzcloud.com
-  sectigo_csr_country                     : IN
-  sectigo_csr_state                       : US
+  sectigo_csr_country                     : US
+  sectigo_csr_state                       : CC
   sectigo_csr_location                    : BLR
   sectigo_csr_organization                : MYORG
   sectigo_csr_organization_unit           : MYORG_UNIT
