@@ -1,4 +1,5 @@
 import requests
+import subprocess
 import os
 import json
 import logging
@@ -421,6 +422,11 @@ def main():
 
     if leaderHost == HOSTNAME:
         print("This is the leader pod")
+
+        # print("*********************************************************")
+        # p = subprocess.Popen([sys.executable, 'ct.py'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        # print(p)
+        # print("*********************************************************")
 
         cfmp = getresourceVersionCompleted()
         cfmpData = cfmp.data

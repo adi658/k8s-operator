@@ -2,6 +2,8 @@ apiVersion: sectigo.com/v1
 kind: SectigoOperator
 metadata:
   name: sectigo-operator-resource2
+  labels:
+    app: sectigok8soperator
 spec:
   domain: app1.trianzcloud.com  
   secretName: my-secret-23
