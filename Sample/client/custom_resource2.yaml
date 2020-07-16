@@ -6,7 +6,7 @@ metadata:
     app: sectigok8soperator
 spec:
   domain: app1.trianzcloud.com  
-  secretName: my-secret-222223333333
+  secretName: my-secret-2
 
   sectigo_cert_type: client
   sectigo_cm_base_url: https://cert-manager.com/
