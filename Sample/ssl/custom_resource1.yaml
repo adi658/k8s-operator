@@ -1,0 +1,50 @@
+apiVersion: sectigo.com/v1
+kind: SectigoOperator
+metadata:
+  name: sectigo-operator-resource1
+spec:
+  domain: app1.trianzcloud.com  
+  secretName: my-secret-1
+
+  sectigo_cert_type: ssl
+  sectigo_cm_base_url: https://cert-manager.com/
+  sectigo_cm_org_id: 9941
+  sectigo_ssl_cert_file_path: /etc/ssl/  
+  sectigo_ssl_cert_file_name: sectigo-ssl-a1 
+  sectigo_force: false  
+  sectigo_ssl_cert_type: 248  
+  sectigo_ssl_cert_validity: 365  
+  sectigo_ssl_cert_custom_fields: []  
+  sectigo_ssl_cert_external_requester: 
+  sectigo_ssl_cert_comments: Test Comments  
+  sectigo_ssl_cert_num_servers: 0 
+  sectigo_ssl_cert_server_type: -1  
+  sectigo_ssl_cert_subject_alt_names: app1.trianzcloud.com,app2.trianzcloud.com  
+  sectigo_ssl_cert_format_type: X509CO  
+  sectigo_max_timeout: 600  
+  sectigo_loop_period: 30  
+  sectigo_expiry_window: 7 
+  sectigo_auto_renew: true
+
+  sectigo_csr_domain                      : trianzcloud.com
+  sectigo_csr_country                     : IN
+  sectigo_csr_state                       : KA
+  sectigo_csr_location                    : BLR
+  sectigo_csr_organization                : MYORG
+  sectigo_csr_organization_unit           : MYORG_UNIT
+  sectigo_csr_email_address               : aditya.bhangle@trianzcloud.com
+  sectigo_csr_key_algo                    : RSA
+  sectigo_csr_key_size                    : 2048
+
+  # Replace 
+  sectigo_replace                         : False
+  sectigo_replace_reason                  : "Test Replace Reason"
+  sectigo_ssl_cert_common_name            : "trianzcloud.com"
+  sectigo_csr                             : "-----BEGIN CERTIFICATE REQUEST-----MIIDLDCCAhQCAQAwgY0xCzAJBgNVBAYTAklOMQswCQYDVQQIDAJLQTEMMAoGA1UEBwwDQkxSMQ8wDQYDVQQKDAZUcmlhbnoxDjAMBgNVBAsMBUNsb3VkMSgwJgYJKoZIhvcNAQkBFhlhZGl0eWEuYmhhbmdsZUB0cmlhbnouY29tMRgwFgYDVQQDDA90cmlhbnpjbG91ZC5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDHHYidO2qFUswl7XttFmMhyYMB7aisytuDwelPUCZEjR1jqePmlUI07RWkKfAcM0Y7410euWqlDZG6mtVRrUAINfwrUaCSJJz/2wMEzQ8UKoV/FOZJXcDw56LZiOBvW5xLhuQBl+uNUZOzjWbaDwq8oIIcYn3hTW8dnwlrxjaHoj1I3mc5cQoaQelYwASPgBPzMXd+h30bCeHEXGZ/C1rU8Dpepmo7c96pvxqiLJL4Mvweh4gwbB/WYwSmTalWhisEI3WHJUyvFupeYPlYePB3CLB9oeDxq7iVRfJCwGBjwGCmFRSGJGqwpCsZbWX3cZRwqQai/Nz4EfzKawz/NAi1AgMBAAGgWTBXBgkqhkiG9w0BCQ4xSjBIMEYGA1UdEQQ/MD2CHHB1cHBldC1zbGF2ZS50cmlhbnpjbG91ZC5jb22CHXB1cHBldC1zbGF2ZTIudHJpYW56Y2xvdWQuY29tMA0GCSqGSIb3DQEBCwUAA4IBAQClTwiVAFVb3aG7kQi8HpHnVx/HdXt/hVMdYnVZ2w0PaJ9nwKewV1xV6kXrejeGGAiZG9U4YvKm7tWm0mqsVZQpUDFy/PcxiAWpyDIIL8HeeEZ5QsuZ5/iM05o5/ixPQT3Ilz3zUD/Qyv/JlovQD1XHEo483T1k9c5aYd/RrbMcREkXGGEM+7A1zOcmm1H563BQIgs6eqNoDF8I+kOKaHR2Nm5aXbXMTeAWrgY/w9o2IN/K02vxnzav0xTtXtS00g2vxRMSEeKGHdiFl475iCetXPmwqZ0zi0IACStNw72Euhh+rxcMEPnToynriUKxunvlNFve1ZM7BFugrpTnLbs8-----END CERTIFICATE REQUEST-----"
+  sectigo_ssl_cert_revoke_on_replace   : True
+  #sectigo_ssl_cert_ssl_id
+
+  # Revoke 
+  sectigo_revoke_reason                   : "Test Revoke Reason"
+  #sectigo_ssl_cert_ssl_id
+
