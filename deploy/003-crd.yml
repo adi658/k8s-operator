@@ -24,10 +24,7 @@ spec:
           type: object
         spec:
           properties:
-            domain:
-              minLength: 1
-              type: string
-            secretName:
+            sectigo_secret_deploy_namespace:
               minLength: 1
               type: string
             sectigo_cert_type:
@@ -39,12 +36,14 @@ spec:
             sectigo_cm_org_id: 
               minLength: 1
               type: integer
+
             sectigo_ssl_cert_file_path:   
               minLength: 1
               type: string
             sectigo_ssl_cert_file_name:   
               minLength: 1
               type: string
+
             sectigo_force:  
               minLength: 1
               type: boolean
@@ -75,6 +74,7 @@ spec:
             sectigo_ssl_cert_format_type:   
               minLength: 1
               type: string
+
             sectigo_max_timeout: 
               minLength: 1
               type: integer
@@ -84,9 +84,21 @@ spec:
             sectigo_expiry_window:  
               minLength: 1
               type: integer
-            sectigo_auto_renew: 
+
+            sectigo_client_cert_first_name: 
               minLength: 1
-              type: boolean
+              type: string
+            sectigo_client_cert_middle_name: 
+              minLength: 1
+              type: string
+            sectigo_client_cert_last_name: 
+              minLength: 1
+              type: string
+            sectigo_client_cert_email: 
+              minLength: 1
+              type: string
+
+            #CSR Params
             sectigo_csr_domain: 
               minLength: 1
               type: string
@@ -108,15 +120,42 @@ spec:
             sectigo_csr_email_address: 
               minLength: 1
               type: string
+
             sectigo_csr_key_algo: 
               minLength: 1
               type: string
             sectigo_csr_key_size: 
               minLength: 1
               type: integer
+
+            # Replace Params
+            sectigo_auto_renew: 
+              minLength: 1
+              type: boolean
+            sectigo_replace_cert: 
+              minLength: 1
+              type: boolean
+            sectigo_replace_reason: 
+              minLength: 1
+              type: string
+            sectigo_client_cert_common_name: 
+              minLength: 1
+              type: string
+            sectigo_csr: 
+              minLength: 1
+              type: string
+            sectigo_client_cert_revoke_on_replace: 
+              minLength: 1
+              type: string
+
+            # Revoke Params
+            sectigo_revoke_reason: 
+              minLength: 1
+              type: string
+
           required:
-          - domain
-          - secretName
+          - sectigo_cert_type
+          - sectigo_secret_deploy_namespace
           type: object
         status:
           properties:
