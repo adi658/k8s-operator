@@ -146,7 +146,7 @@ spec:
               type: string
             sectigo_client_cert_revoke_on_replace: 
               minLength: 1
-              type: string
+              type: boolean
 
             # Revoke Params
             sectigo_revoke_reason: 

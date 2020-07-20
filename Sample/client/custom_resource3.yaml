@@ -12,8 +12,8 @@ spec:
   sectigo_cert_type: client
   sectigo_cm_base_url: https://cert-manager.com/
   sectigo_cm_org_id: 9941
-  sectigo_client_cert_file_path: /etc/ssl/  
-  sectigo_client_cert_file_name: sectigo-client-b
+  # sectigo_client_cert_file_path: /etc/ssl/  
+  # sectigo_client_cert_file_name: sectigo-client-b
   sectigo_force: false  
   sectigo_client_cert_type: 226  
   sectigo_client_cert_validity: 365  

@@ -1,0 +1,2 @@
+* * * * * root /app/task.py >> /var/log/task.log 2>&1
+

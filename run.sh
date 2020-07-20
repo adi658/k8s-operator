@@ -14,8 +14,13 @@ kubectl delete -f deploy/.
 
 echo "" 
 echo "--------- Build Docker image ---------"
-docker image build -t adi658/op3:latest .
+docker image build -t adi658/op3:latest -f Dockerfile .
 docker image push adi658/op3:latest
+
+echo "" 
+echo "--------- Build Docker image for Renew ---------"
+docker image build -t adi658/op3:renew -f Dockerfile_renew .
+docker image push adi658/op3:renew
 
 echo "" 
 echo "--------- Apply deployment file and show pods ---------"

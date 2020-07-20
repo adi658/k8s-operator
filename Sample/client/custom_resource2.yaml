@@ -6,14 +6,14 @@ metadata:
     app: sectigok8soperator
 spec:
   domain: app1.trianzcloud.com  
-  secretName: my-secret-2
+  secretName: my-secret-1
 
   sectigo_secret_deploy_namespace: 'default' 
   sectigo_cert_type: client
   sectigo_cm_base_url: https://cert-manager.com/
   sectigo_cm_org_id: 9941
-  sectigo_client_cert_file_path: /etc/ssl/  
-  sectigo_client_cert_file_name: sectigo-client-a
+  # sectigo_client_cert_file_path: /etc/ssl/  
+  # sectigo_client_cert_file_name: sectigo-client-a
   sectigo_force: false  
   sectigo_client_cert_type: 226  
   sectigo_client_cert_validity: 365  

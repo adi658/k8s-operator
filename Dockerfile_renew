@@ -1,0 +1,27 @@
+FROM python:3.7
+
+RUN apt-get update
+RUN apt-get install -y nano cron
+RUN apt install dos2unix
+
+RUN pip install requests pyyaml pyopenssl simplejson
+RUN pip install kubernetes
+
+COPY python/sectigo_pycert.py python/renew_entrypoint.py /
+
+RUN dos2unix /renew_entrypoint.py
+RUN chmod +x /renew_entrypoint.py 
+
+#COPY renew_cron /etc/cron.d/renew_cron
+#RUN crontab /etc/cron.d/renew_cron
+
+
+#ADD renew_cron /etc/cron.d/renew_cron
+#RUN dos2unix /etc/cron.d/renew_cron
+#RUN chmod 0644 /etc/cron.d/renew_cron
+#RUN crontab /etc/cron.d/renew_cron
+
+COPY ./renew_cron /etc/cron.d/renew_cron
+CMD ["cron", "-f"]
+
+#CMD cron && tail -f /var/log/renewcert.log

@@ -4,25 +4,26 @@ import os
 import json
 import logging
 import sys
-# import cert as c 
 import time
 import requests
 import base64
 import os 
+import inspect 
+import glob
+import shutil
+import sectigo_pycert as p
+
 from kubernetes import client, config, watch
 from kubernetes.client.rest import ApiException
-
-
-import sys 
-import glob, os
-import shutil
-import os,sys,inspect,simplejson
 from os import path
 from os.path import exists, join, isdir
+
+#------------------------------------------------------
+
+operatorNamespace = 'default'
 current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir) 
-import sectigo_pycert as p
 
 log = logging.getLogger(__name__)
 out_hdlr = logging.StreamHandler(sys.stdout)
@@ -30,6 +31,8 @@ out_hdlr.setFormatter(logging.Formatter('%(asctime)s %(message)s'))
 out_hdlr.setLevel(logging.INFO)
 log.addHandler(out_hdlr)
 log.setLevel(logging.INFO)
+
+#------------------------------------------------------
 
 # Set Connection Parameters
 connectDictionary = {
@@ -40,6 +43,8 @@ connectDictionary = {
 }
 response = p.SetConnectionParameters(connectDictionary)
 
+#------------------------------------------------------
+
 # Configure Logger
 log_params = {
     # 'sectigo_logger_file_path'       : 'log/sectigo_pycert.log',
@@ -49,32 +54,59 @@ log_params = {
 }
 response = p.ConfigureLogger(log_params)
 
-def encode_base64(content):
-    message_bytes = content.encode('ascii')
-    base64_cert = base64.b64encode(message_bytes)
-    encodedStr = str(base64_cert,'utf-8')
-    return encodedStr
+#------------------------------------------------------ FUNCTIONS related to K8S Operator
 
 def getToken():
+    """
+    Get K8S Token inside the container  
+    INPUT: 
+        content - content to be encoded 
+    Return: 
+        encoded token string 
+    """
+
     token = ""
     with open('/var/run/secrets/kubernetes.io/serviceaccount/token', 'r') as file:
         token = file.read().replace('\n', '')
     return token
 
 def getHost():
+    """
+    Get HOST env variables 
+    INPUT: 
+        - 
+    Return: 
+        HOST 
+    """
+
     KUBERNETES_SERVICE_HOST=os.getenv("KUBERNETES_SERVICE_HOST")
     KUBERNETES_SERVICE_PORT=os.getenv("KUBERNETES_SERVICE_PORT")
     HOST = "https://"+KUBERNETES_SERVICE_HOST+":"+KUBERNETES_SERVICE_PORT
     return HOST
 
 def getCaCert():
+    """
+    Get ca cert present inside the container
+    INPUT: 
+        -
+    Return: 
+        path to the cacert 
+    """
+
     cacert = ""
-    with open('/var/run/secrets/kubernetes.io/serviceaccount/ca.crt', 'r') as file:
-        token = file.read().replace('\n', '')
-    # return cacert
+    # with open('/var/run/secrets/kubernetes.io/serviceaccount/ca.crt', 'r') as file:
+    #     token = file.read().replace('\n', '')
     return '/var/run/secrets/kubernetes.io/serviceaccount/ca.crt'
 
 def getHeaders():
+    """
+    Build Header for request
+    INPUT: 
+        -
+    Return: 
+        header json 
+    """
+
     token = getToken()
     headers = {
         "Authorization": "Bearer "+token,
@@ -84,7 +116,15 @@ def getHeaders():
     }
     return headers
 
-def getConfigurationForWatch():
+def getConfiguration(operation):
+    """
+    configuration for all other operations excluding watch
+    INPUT: 
+        -
+    Return: 
+        watch object 
+    """
+
     ApiToken = getToken()
     configuration = client.Configuration()
     configuration.host = "https://"+os.getenv("KUBERNETES_SERVICE_HOST")+":"+str(os.getenv("KUBERNETES_SERVICE_PORT"))
@@ -92,70 +132,125 @@ def getConfigurationForWatch():
     configuration.verify_ssl=False
     configuration.debug = True
     client.Configuration.set_default(configuration)
-    kubeApi = client.CustomObjectsApi(client.ApiClient(configuration))
-    return kubeApi
-
-
-def getConfiguration():
-    ApiToken = getToken()
-    configuration = client.Configuration()
-    configuration.host = "https://"+os.getenv("KUBERNETES_SERVICE_HOST")+":"+str(os.getenv("KUBERNETES_SERVICE_PORT"))
-    configuration.api_key={"authorization":"Bearer "+ ApiToken}
-    configuration.verify_ssl=False
-    configuration.debug = True
-    client.Configuration.set_default(configuration)
-    kubeApi = client.CoreV1Api(client.ApiClient(configuration))
-    return kubeApi
+    if operation != "watch":
+        kubeApi = client.CoreV1Api(client.ApiClient(configuration))
+        return kubeApi
+    else:
+        kubeApi = client.CustomObjectsApi(client.ApiClient(configuration))
+        return kubeApi
 
 def getresourceVersionCompleted():
-    kubeApi = getConfiguration()
-    cfmp = kubeApi.read_namespaced_config_map('sectigo-operator-config', 'default', pretty='true',exact=True, export=True)
+    """
+    Get conpleted resourceVersion of event
+    INPUT: 
+        -
+    Return: 
+        full config map object
+    """
+
+    global operatorNamespace
+    kubeApi = getConfiguration('')
+    cfmp = kubeApi.read_namespaced_config_map('sectigo-operator-config', operatorNamespace, pretty='true',exact=True, export=True)
     print("------------------------ NEW FLOW ----------------------------")
     return cfmp
 
-def readSecretForCertId(certType, secretName):
-    kubeApi = getConfiguration()
-    readSecret = kubeApi.read_namespaced_secret(secretName,'default').data
+def encode_base64(content):
+    """
+    Encode the string to base64 format 
+    INPUT: 
+        content - content to be encoded 
+    Return: 
+        encoded string 
+    """
+
+    message_bytes = content.encode('ascii')
+    base64_cert = base64.b64encode(message_bytes)
+    encodedStr = str(base64_cert,'utf-8')
+    return encodedStr
+
+def getCertIdFromSecret(certType, secretName, namespace):
+    """
+    Read secret and get the certID of the certificate present in it
+    INPUT: 
+        certType - SSL/CLIENT
+        secretName - name of the secret 
+    Return: 
+        certId in str format
+    """
+
+    kubeApi = getConfiguration('')
+    readSecret = kubeApi.read_namespaced_secret(secretName, namespace).data
     certId = base64.b64decode(readSecret['certId'])
     return str(certId,'utf-8')
 
-# # Works 
-def getExistingSecret(secretName):
+def getExistingSecret(secretName, namespace):
+    """
+    Get existing Secret 
+    INPUT: 
+        secretName - name of the secret 
+    Return: 
+        full secret Object 
+    """
+    
     print(" ------------ getExistingSecret Start ------------")
-
-    # HOST = getHost()
-    # headers = getHeaders()
-
-    # url = HOST+"/api/v1/namespaces/default/secrets/"+secretName
-    # print(url)
-
-    # response = requests.request("GET", url, headers=headers, verify=getCaCert())
-    # obj = json.loads(response.text)
-    kubeApi = getConfiguration()
+    kubeApi = getConfiguration('')
     try:
-        readSecret = kubeApi.read_namespaced_secret(secretName,'default')
+        readSecret = kubeApi.read_namespaced_secret(secretName, namespace)
         return readSecret
     except Exception:
         return 0
  
+def delete_secret(secretName, namespace):
+    """
+    Delete Secret 
+    INPUT: 
+        secretName - name of the secret to be deleted 
+    Return: 
+        -
+    """
+    
+    kubeApi = getConfiguration('')
+    try: 
+        deletesecret = kubeApi.delete_namespaced_secret(secretName, namespace)
+        return True
+    except Exception:
+        return False
+    
 def update_config_map(resourceVersion):
-    # delete configmaps
-    kubeApi = getConfiguration()
-    cfmap1 = kubeApi.delete_namespaced_config_map('sectigo-operator-config', 'default')
+    """
+    Update COnfig map 
+    INPUT: 
+        resourceVersion - resource version of current events (that was completed) 
+    Return: 
+        -
+    """
+    global operatorNamespace
+    # delete configmaps before udate
+    kubeApi = getConfiguration('')
+    cfmap1 = kubeApi.delete_namespaced_config_map('sectigo-operator-config', operatorNamespace)
 
     # create configmaps with completed resourceVersion number
-    kubeApi = getConfiguration()
-    payload = {"apiVersion": "v1","data": {"namespace": "default","resourceVersionCompleted": resourceVersion},"kind": "ConfigMap","metadata": {"name": "sectigo-operator-config","namespace": "default","selfLink": "/api/v1/namespaces/default/configmaps/sectigo-operator-config"}}
-    cfmap1 = kubeApi.create_namespaced_config_map('default', payload)
-    # print("********** replaced secret: "+resourceVersion)
-    # print(cfmap1)    
-    # print("=======================================")
+    kubeApi = getConfiguration('')
+    selfLink = "/api/v1/namespaces/"+operatorNamespace+"/configmaps/sectigo-operator-config"
+    payload = {"apiVersion": "v1","data": {"namespace": operatorNamespace,"resourceVersionCompleted": resourceVersion},"kind": "ConfigMap","metadata": {"name": "sectigo-operator-config","namespace": operatorNamespace, "selfLink": selfLink}}
+    cfmap1 = kubeApi.create_namespaced_config_map(operatorNamespace, payload)
 
-def update_pre_cert_details(certType, response, secretName, resourceVersion):
+def update_pre_cert_details(certType, response, secretName, resourceVersion, namespace):
+    """
+    Update secret with cert details - after enroll and prior to collect.
+    INPUT: 
+        certType - SSL/CLIENT
+        response - enroll response
+        secretName - name of the secret to be updated
+        resourceVersion - resource version of current events
+    Return: 
+        - 
+    """
+
     print(" ------------ inside update_pre_cert_details function ------------")
+    certId = ""
     encodedCert = ""
     encodedKey = ""
-    encodedCsr = ""
     encodedCertId = ""
 
     if 'certificate' in response.keys():
@@ -166,38 +261,33 @@ def update_pre_cert_details(certType, response, secretName, resourceVersion):
         private_key = response["private_key"]
         encodedKey = encode_base64(private_key)
 
-    if 'csr' in response.keys():
-        csr = response["csr"]
-        # print("-======================== CSR: ")
-        # print(csr)
-        encodedCsr = encode_base64(csr)
-
-    certId = ""
     if certType=="SSL":
         if 'ssl_id' in response.keys():
             certId = str(response["ssl_id"])
     elif certType=="CLIENT":
         if 'orderNumber' in response.keys():
             certId = str(response["orderNumber"])
-
     encodedCertId = encode_base64(certId)
     
     encodedResourceVersion = encode_base64(resourceVersion) 
     encodedSecretName = encode_base64(secretName)
 
-    kubeApi = getConfiguration()
-    pretty = 'true'
-    exact = True
-    export = True
-    payload = { "kind": "Secret", "apiVersion": "v1", "metadata": { "name": secretName, "namespace": "default" }, "data": { "tls.crt": encodedCert, "tls.key": encodedKey, "certId": encodedCertId, "resourceVersion": encodedResourceVersion }, "type": "Opaque" }
-    # print("+++++++++++++++++++++++++++++++++++++++++++")
-    # print(payload)
-    allPods = kubeApi.create_namespaced_secret('default', payload)
-    # print("======================================= allpods")
-    # print(allPods)    
-    # print("=======================================")
+    kubeApi = getConfiguration('')
+    payload = { "kind": "Secret", "apiVersion": "v1", "metadata": { "name": secretName, "namespace": namespace }, "data": { "tls.crt": encodedCert, "tls.key": encodedKey, "certId": encodedCertId, "resourceVersion": encodedResourceVersion }, "type": "Opaque" }
+    allPods = kubeApi.create_namespaced_secret(namespace, payload)
 
-def update_post_cert_details(certType, response, secretName, resourceVersion, cfmpData):
+def update_post_cert_details(certType, response, secretName, resourceVersion, cfmpData, namespace):
+    """
+    Update secret with cert details - after collect.
+    INPUT: 
+        certType - SSL/CLIENT
+        response - enroll response
+        secretName - name of the secret to be updated
+        resourceVersion - resource version of current events
+        cfmpData - config map data object
+    Return: 
+        status - boolean
+    """
 
     print("------------------------- inside update_post_cert_details function ------------------------------")
 
@@ -205,8 +295,8 @@ def update_post_cert_details(certType, response, secretName, resourceVersion, cf
     encodedKey = ""
     encodedCertId = ""
 
-    # Get existing values from secret if available and assign them as default.. 
-    dataObj = getExistingSecret(secretName)
+    # Get existing values from secret if available and assign them.. 
+    dataObj = getExistingSecret(secretName, namespace)
     dataObj = dataObj.data
 
     if 'tls.crt' in dataObj.keys():
@@ -238,26 +328,35 @@ def update_post_cert_details(certType, response, secretName, resourceVersion, cf
 
     encodedResourceVersion = encode_base64(resourceVersion) 
 
-    kubeApi = getConfiguration()
-    payload = { "kind": "Secret", "apiVersion": "v1", "metadata": { "name": secretName, "namespace": "default" }, "data": { "tls.crt": encodedCert, "tls.key": encodedKey, "certId": encodedCertId, "resourceVersion": encodedResourceVersion }, "type": "Opaque" }
+    kubeApi = getConfiguration('')
+    payload = { "kind": "Secret", "apiVersion": "v1", "metadata": { "name": secretName, "namespace": namespace }, "data": { "tls.crt": encodedCert, "certId": encodedCertId, "resourceVersion": encodedResourceVersion }, "type": "Opaque" }
 
-    allPods = kubeApi.patch_namespaced_secret(secretName, 'default', payload)
-    print("********** patched named seceret")
-    # print(allPods)    
-    print("**********")
-
-    update_config_map(resourceVersion)
+    status = False
+    try:
+        allPods = kubeApi.patch_namespaced_secret(secretName, namespace, payload)
+        status = True
+    except Exception:
+        status = False 
+    
+    print("############################################ exception: ")
+    print(status)
+    return status 
 
 def collect(certType, response, secretName, resourceVersion, cfmpData):
-
-    # 2. CollectCertificate Sample Operation - SSL
-    # print("#######################################################")
-    # print("2. CollectCertificate Sample Opertaion - SSL")
+    """
+    Collect operation 
+    INPUT: 
+        certType - SSL/CLIENT
+        response - enroll/replace response
+        secretName - name of the secret to be updated
+        resourceVersion - resource version of current events
+        cfmpData - config map data object
+    Return: 
+        Collect Repsonse
+    """
 
     collect_dict = {}
     if certType == "SSL":
-        print("========================= ")
-        print(response["ssl_id"])
         collect_dict = {
             'sectigo_ssl_cert_ssl_id': response["ssl_id"], 
             'sectigo_ssl_cert_format_type': 'x509CO', 
@@ -265,8 +364,6 @@ def collect(certType, response, secretName, resourceVersion, cfmpData):
             'sectigo_max_timeout': 6000
         }
     elif certType == "CLIENT":
-        print("========================= ")
-        print(response["orderNumber"])
         collect_dict = {
             'sectigo_client_cert_order_number': response["orderNumber"], 
             'sectigo_client_cert_format_type': 'x509CO', 
@@ -274,42 +371,25 @@ def collect(certType, response, secretName, resourceVersion, cfmpData):
             'sectigo_max_timeout': 6000
         }
 
-    # print("------------ COLLECT - collect_response - start ")
     collect_response = p.CollectCertificate(collect_dict, certType)
-    # print(collect_response)
-
     return collect_response
 
-def delete_secret(secretName):
-    kubeApi = getConfiguration()
-    deletesecret = kubeApi.delete_namespaced_secret(secretName, 'default')
-
-def event_loop1():
-    print("testing...")
-
 def event_loop(resourceVersionCompleted,cfmpData):
+    """
+    Event Loop 
+    INPUT: 
+        resourceVersionCompleted    - resource Version of the event that has been completed
+        cfmpData                    - sectigo-config map data 
+    Return: 
+        -
+    """
+
     HOST = getHost()
     headers = getHeaders()
 
-    # log.info("Starting the service")
-    # # url = HOST+'/apis/sectigo.com/v1/sectigok8soperator?watch=true&allowWatchBookmarks=true&resourceVersion='+resourceVersionCompleted
-    # url = 'http://3.211.68.242:8001/apis/sectigo.com/v1/sectigok8soperator?watch=true&allowWatchBookmarks=true&resourceVersion='+resourceVersionCompleted
-    # print("------- Watch URL: ")
-    # print(url)
-    # # r = requests.get(url, headers=headers, stream=True, verify=getCaCert())
-    # r = requests.get(url, stream=True, verify=getCaCert())
-    # print("======================= 1")
-    # print(r)
-    # print("======================= 2")
-    # print(r.text)
-    # print("======================= 3")
-    # for line in r.iter_lines():
-
-    kubeApi = getConfigurationForWatch()
+    kubeApi = getConfiguration('watch')
     ct = 1
 
-    print("")
-    print("")
     print("")
     print("")
     print("")
@@ -319,65 +399,56 @@ def event_loop(resourceVersionCompleted,cfmpData):
     for line in watch.Watch().stream(kubeApi.list_cluster_custom_object, 'sectigo.com', 'v1', 'sectigok8soperator', watch=True, resource_version=resourceVersionCompleted):
         print("")
         print("")
-        print("############################ resourceVersionCompleted inside event loop ############################")
-        print(resourceVersionCompleted)
-        # print("======================= 0 - event line")
-        # print(line)
-        # print("======================= 0-1 - event line")
-        # obj = json.loads(line)
-        obj = line
-        event_type = obj['type']    # ADDED, MODIFIED, DELETED
-        # print("======================= 1")
-        # print(event_type)
-        # print("======================= 2")
-        # print(resourceVersionCompleted)
-        # print("======================= 3")
-
+        enroll_dict = {}
+        certType = ""
         secretName = ""
         resourceVersion = ""
-        certType = ""
-        enroll_dict = {}
+        namespace = ""
+
+        obj = line
+        event_type = obj['type'] #ADDED, MODIFIED, DELETED, ERROR
 
         if event_type == "ADDED" or event_type == "MODIFIED" or event_type == "DELETED":
 
-            
-            certType = (obj['object']['spec']['sectigo_cert_type']).upper()
             secretName = ""
+            certType = (obj['object']['spec']['sectigo_cert_type']).upper()
+            
             if certType == "SSL":
-                secretName = obj['object']['spec']['sectigo_ssl_cert_file_name']
+                secretName = obj['object']['spec']['secretName']
             elif certType == "CLIENT":
-                secretName = obj['object']['spec']['sectigo_client_cert_file_name']
+                secretName = obj['object']['spec']['secretName']
     
             resourceVersion = obj['object']['metadata']['resourceVersion']
             enroll_dict = obj['object']['spec']
+            namespace = obj['object']['spec']['sectigo_secret_deploy_namespace']
             
-            print("-------------------- current working on -----------------")
-            print(resourceVersion)
-
+        print("\n\nEvent:"+event_type+"\n\n")
         if event_type == "ADDED":
 
-            obj = getExistingSecret(secretName)
-            if obj != 0:
-                # secret exists 
-                print(" ------------ Secret \""+secretName+"\" already exists ------------")
+            print("\n\nChecking if secret \""+secretName+"\" already exists...")
+            obj = getExistingSecret(secretName, namespace)
+
+            if obj != 0:    # secret exists | (0 = secret does not exist)
+                print("\nSecret \""+secretName+"\" already exists!")
                 certExists = False
                 dataObj = obj.data
 
                 if 'tls.crt' in dataObj.keys():
                     encodedCert = dataObj["tls.crt"]
-                    print("--------- 1 Checking if secrt is empty")
                     if encodedCert != "":
-                        print("--------- 2  secrt is not empty")
                         certExists = True
 
-                print("--------- 3 Checking secret end")
+                print("\nCert Exists??: ")
+                print(certExists)
             
-                # Since secret is presnet, if cert is null or does not exist in secret, download it
+                # COLLECT-CERT if SECRET is present and certExists = FALSE
                 if certExists == False:
-                    print("------------ Cert does not exist in secret: \""+secretName+"\". Collecting ------------")
-                    #########3 read certid from secret and decode it from base64
-                    certId = readSecretForCertId(certType, secretName)
+                    print("\n\nSecret Exists but CERT does not exist in secret: \""+secretName+"\". Collecting...")
+
+                    # read CERTID from secret and decode it from base64
+                    certId = getCertIdFromSecret(certType, secretName, namespace)
                     collect_dict = {}
+
                     if certType == "SSL":
                         collect_dict = {
                             'sectigo_ssl_cert_ssl_id': certId, 
@@ -393,34 +464,38 @@ def event_loop(resourceVersionCompleted,cfmpData):
                             'sectigo_max_timeout': 6000
                         }
 
+                    print("\n\nCollecting Certificate... ")
                     collect_response = p.CollectCertificate(collect_dict, certType)
-                    print("------------ COLLECT - collect_response - start ")
-                    # print(collect_response)
-                    update_post_cert_details(certType, collect_response, secretName, resourceVersion, cfmpData)
-                    print("------------ COLLECT - collect_response - end 1")
+
+                    print("\n\nUpdating Cert Details In Secret after COLLECT... ")
+                    status = update_post_cert_details(certType, collect_response, secretName, resourceVersion, cfmpData, namespace)
+
+                    if status == True:
+                        print("\n\nUpdating ConfigMap with ResourceVersion after COLLECT... ")
+                        update_config_map(resourceVersion)
 
             else: 
-                log.info(" ------------ Creation detected - start ------------")
+                print("\n\nSecret \""+secretName+"\" does not exists...")
+                print("\nEnrolling Certificate... ")
                 enroll_response = p.EnrollCertificate(enroll_dict, certType)
 
-                print("------------ ENROLL - response - start ")
-                # print(enroll_response)
-                update_pre_cert_details(certType, enroll_response, secretName, resourceVersion)
-                print("------------ ENROLL - response - end")
+                print("\n\nUpdating Cert Details In Secret before COLLECT... ")
+                update_pre_cert_details(certType, enroll_response, secretName, resourceVersion, namespace)
 
-                print("------------ COLLECT - response - start ")
-                print("------------ sleeping 30 secs ")
-                time.sleep(30)
+                print("\n\nCollecting Certificate... ")
                 collect_response = collect(certType, enroll_response, secretName, resourceVersion, cfmpData)
-                print("------------ COLLECT - response - end ")
-                update_post_cert_details(certType, collect_response, secretName, resourceVersion, cfmpData)
-                # time.sleep(30)
-                log.info(" ------------ Creation detected - end ------------")
+
+                print("\n\nUpdating Cert Details In Secret after ENROLL/COLLECT... ")
+                status = update_post_cert_details(certType, collect_response, secretName, resourceVersion, cfmpData, namespace)
+
+                if status == True:
+                    print("\n\nUpdating ConfigMap with ResourceVersion after ENROLL/COLLECT... ")
+                    update_config_map(resourceVersion)
 
         elif event_type == "DELETED":
-            log.info(" ------------ Deletion detected - start ------------")
-            # call revoke api here and pass params
-            certId = readSecretForCertId(certType, secretName)
+            print("\n\nRevoking Certificate... ")
+
+            certId = getCertIdFromSecret(certType, secretName, namespace)
             revoke_dict = {}
             revoke_dict['sectigo_revoke_reason'] = obj['object']['spec']['sectigo_revoke_reason']
 
@@ -430,16 +505,18 @@ def event_loop(resourceVersionCompleted,cfmpData):
                 revoke_dict['sectigo_client_cert_order_number'] = certId
 
             revoke_response = p.RevokeCertificate(revoke_dict, certType)
-            print("************************ delete response *************** ")
-            print(revoke_response)
-            delete_secret(secretName)
-            update_config_map(resourceVersion)
-            log.info(" ------------ Deletion detected - end ------------")
+
+            print("\n\nDeleting Secret after Revoke... ")
+            status = delete_secret(secretName, namespace)
+
+            if status == True:
+                print("\n\nUpdating ConfigMap with ResourceVersion after REVOKE... ")
+                update_config_map(resourceVersion)
 
         elif event_type == "MODIFIED":
-            log.info(" ------------ Update detected start ------------")
-            # call replace api here and pass params
-            certId = readSecretForCertId(certType, secretName)
+            print("\n\nReplacing Certificate... ")
+
+            certId = getCertIdFromSecret(certType, secretName, namespace)
             replace_dict = {}
             replace_dict['sectigo_replace'] = obj['object']['spec']['sectigo_replace']
             replace_dict['sectigo_replace_reason'] = obj['object']['spec']['sectigo_replace_reason']
@@ -456,37 +533,40 @@ def event_loop(resourceVersionCompleted,cfmpData):
                 replace_dict['sectigo_client_cert_subject_alt_names'] = obj['object']['spec']['sectigo_client_cert_subject_alt_names']
                 replace_dict['sectigo_client_cert_revoke_on_replace'] = obj['object']['spec']['sectigo_client_cert_revoke_on_replace']
 
-            print("############################ REPLACE - response - start ")
             replace_response = p.ReplaceCertificate(replace_dict, certType)
-            # print(replace_response)
-            print("############################ REPLACE - response - end ")
-            print("############################ COLLECT - response - start ")
+
+            print("\n\nCollecting Certificate... ")
             collect_response = collect(certType, replace_response, secretName, resourceVersion, cfmpData)
-            print("############################ COLLECT - response - end ")
-            update_post_cert_details(certType, collect_response, secretName, resourceVersion, cfmpData)
-            log.info("############################ Update detected - end ------------")
+
+            print("\n\nUpdating Cert Details In Secret after REPLACE and COLLECT... ")
+            status = update_post_cert_details(certType, collect_response, secretName, resourceVersion, cfmpData, namespace)
+
+            if status == True:
+                print("\n\nUpdating ConfigMap with ResourceVersion after REPLACE... ")
+                update_config_map(resourceVersion)
 
         elif event_type == "ERROR":
-            # event_loop(resourceVersionCompleted,cfmpData)
-            oldVersionId = obj['object']['message']    # ADDED, MODIFIED, DELETED
+            # oldVersionId = obj['object']['message']
+            print("\n\nError Occured... ")
 
         cfmp = getresourceVersionCompleted()
         cfmpData = cfmp.data
-        resourceVersionCompleted = cfmpData['resourceVersionCompleted']    # ADDED, MODIFIED, DELETED
+        resourceVersionCompleted = cfmpData['resourceVersionCompleted']
 
-        print("============= end for loop =============== ")
-        print("============= sleeping for 30 secs =============== ")
-        time.sleep(30)
-    print("============= outside for loop =============== ")
+        print("")
+        print("Event Loop complete for resVersion: "+resourceVersionCompleted+"- Waiting 10 sec before checking for next events in the set")
+        time.sleep(10)
 
-    print("========== resourceVersionCompleted after this loop ============= ")
-    print(resourceVersionCompleted)
-    print("========== loop complete - sleep 10 sec and call event_loop() ============= ")
+    print("")
+    print("Event Loop complete for resVersion: "+resourceVersionCompleted+"- Waiting 10 sec before calling the event loop again")
     time.sleep(10)
-
     event_loop(resourceVersionCompleted,cfmpData)
 
 def main():
+    """
+    Main Function 
+    """
+
     HOSTNAME = os.getenv("HOSTNAME")
     url = "http://localhost:4040"
     response = requests.get(url, stream=True)
@@ -498,19 +578,14 @@ def main():
     if leaderHost == HOSTNAME:
         print("This is the leader pod")
 
-        # print("*********************************************************")
-        # p = subprocess.Popen([sys.executable, 'ct.py'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        # print(p)
-        # print("*********************************************************")
-
         cfmp = getresourceVersionCompleted()
         cfmpData = cfmp.data
         resourceVersionCompleted = cfmpData['resourceVersionCompleted']    # ADDED, MODIFIED, DELETED
         event_loop(resourceVersionCompleted,cfmpData)
 
     else:
-        print("This is NOT the leader pod. LeaderPod: "+leaderHost)
-        time.sleep(10)
+        print("On Standby. This is NOT the leader pod. LeaderPod: "+leaderHost+". Waiting for 30 secs before next check")
+        time.sleep(30)
         main()
 
 main()
