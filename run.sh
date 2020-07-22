@@ -19,8 +19,8 @@ docker image push adi658/op3:latest
 
 echo "" 
 echo "--------- Build Docker image for Renew ---------"
-docker image build -t adi658/op3:renew -f Dockerfile_renew .
-docker image push adi658/op3:renew
+docker image build -t adi658/sectigo_renew_cert:latest -f Dockerfile_renew .
+docker image push adi658/sectigo_renew_cert:latest
 
 echo "" 
 echo "--------- Apply deployment file and show pods ---------"

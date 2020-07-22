@@ -30,9 +30,9 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
 
-      - image: adi658/op3:renew
+      - image: adi658/sectigo_renew_cert:latest
         name: renewcert
-
+        
       - image: adi658/leaderelection:latest
         name: leaderelection
         args:
